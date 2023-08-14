@@ -2,6 +2,7 @@ package s3
 
 import (
 	"context"
+	"io/fs"
 	"log"
 	"os"
 	"path"
@@ -29,7 +30,7 @@ func FromEnv() (billy.Filesystem, error) {
 		return nil, err
 	}
 
-	s3 := &S3{client: client, bucket: bucket, index: make(map[string]*FileInfo)}
+	s3 := &S3{client: client, bucket: bucket, index: make(map[string]fs.FileInfo)}
 	s3.Index()
 	for k := range s3.index {
 		log.Printf("%s", k)
@@ -46,22 +47,14 @@ func (s3 *S3) Index() {
 	for obj := range objs {
 		fpath := path.Join("/", obj.Key)
 		log.Printf("%s", obj.Key)
-		s3.index[fpath] = &FileInfo{
-			name:  filepath.Base(strings.TrimPrefix(fpath, "/")),
-			size:  obj.Size,
-			isDir: false,
-		}
+		s3.index[fpath] = NewFileInfo(obj)
 
 		// Recurse object path and create directories
 		dirTree := "/"
 		for _, node := range strings.Split(filepath.Dir(fpath), "/") {
 			dirTree = filepath.Join(dirTree, node)
 			log.Print(dirTree)
-			s3.index[dirTree] = &FileInfo{
-				name:  filepath.Base(strings.TrimPrefix(dirTree, "/")),
-				size:  4096,
-				isDir: true,
-			}
+			s3.index[dirTree] = NewDirInfo(dirTree)
 
 		}
 	}

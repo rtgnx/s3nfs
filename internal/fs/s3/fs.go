@@ -43,22 +43,24 @@ func (s3 *S3) MkdirAll(filename string, perm fs.FileMode) error {
 
 // Open implements billy.Filesystem.
 func (s3 *S3) Open(filename string) (billy.File, error) {
+	log.Println("OPEN: ", filename)
 	filename = strings.TrimPrefix(filename, "/")
-	_, err := s3.client.GetObject(context.Background(), s3.bucket, filename, minio.GetObjectOptions{})
+	obj, err := s3.client.GetObject(context.Background(), s3.bucket, filename, minio.GetObjectOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	return &File{s3: s3, s3Prefix: filename, locked: false}, nil
+	return &File{s3: s3, s3Prefix: filename, fd: obj, locked: false}, nil
 }
 
 // OpenFile implements billy.Filesystem.
-func (*S3) OpenFile(filename string, flag int, perm fs.FileMode) (billy.File, error) {
-	return nil, ErrNotImplemented
+func (s3 *S3) OpenFile(filename string, flag int, perm fs.FileMode) (billy.File, error) {
+	return s3.Open(filename)
 }
 
 // ReadDir implements billy.Filesystem.
 func (s3 *S3) ReadDir(path string) ([]fs.FileInfo, error) {
+	log.Printf("READ_DIR: %s", path)
 	list := []fs.FileInfo{}
 	pattern := filepath.Join(path, "*")
 	for k, v := range s3.index {
@@ -103,16 +105,9 @@ func (*S3) Root() string { return "" }
 func (s3 *S3) Stat(filename string) (fs.FileInfo, error) {
 	log.Printf("STAT %s", filename)
 
-	if filename == "" {
-		filename = "/"
-	}
-
-	// if strings.Compare(filename, "/") == 0 || len(filename) == 0 {
-	// 	return &FileInfo{isDir: true, name: ".", size: 4096}, nil
-	// }
-
 	stat, ok := s3.index[filename]
 	if !ok {
+		log.Printf("stat no such file or directory: %s", filename)
 		return stat, fmt.Errorf("no such file or directory")
 	}
 	return stat, nil

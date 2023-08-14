@@ -2,8 +2,10 @@ package s3
 
 import (
 	"errors"
+	"io/fs"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 )
@@ -20,17 +22,18 @@ type File struct {
 }
 
 type FileInfo struct {
-	stat  syscall.Stat_t
-	isDir bool
-	name  string
-	size  int64
+	stat    syscall.Stat_t
+	isDir   bool
+	name    string
+	size    int64
+	lastMod time.Time
 }
 
 type S3 struct {
 	client        *minio.Client
 	bucket        string
 	locks         sync.Map
-	index         map[string]*FileInfo
+	index         map[string]fs.FileInfo
 	localCache    bool
 	localCacheDir string
 }
