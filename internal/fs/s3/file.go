@@ -3,16 +3,36 @@ package s3
 import (
 	"errors"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
+	"strings"
+	"syscall"
 	"time"
 
-	"github.com/go-git/go-billy/v5"
 	"github.com/minio/minio-go/v7"
 )
 
+const DefaultACL = 0540
+
 func NewFileInfo(info minio.ObjectInfo) fs.FileInfo {
-	return &FileInfo{}
+	return &FileInfo{
+		name:    filepath.Base(strings.TrimPrefix(info.Key, "/")),
+		size:    info.Size,
+		isDir:   false,
+		lastMod: info.LastModified,
+		stat: syscall.Stat_t{
+			Size: info.Size,
+		},
+	}
+}
+
+func NewDirInfo(prefix string) fs.FileInfo {
+	return &FileInfo{
+		name:  filepath.Base(strings.TrimPrefix(prefix, "/")),
+		size:  4096,
+		isDir: true,
+	}
 }
 
 // IsDir implements fs.FileInfo.
@@ -22,12 +42,12 @@ func (fi *FileInfo) IsDir() bool {
 
 // ModTime implements fs.FileInfo.
 func (fi *FileInfo) ModTime() time.Time {
-	return time.Now()
+	return fi.lastMod
 }
 
 // Mode implements fs.FileInfo.
 func (fi *FileInfo) Mode() fs.FileMode {
-	return fs.FileMode(fi.stat.Mode)
+	return DefaultACL
 }
 
 // Name implements fs.FileInfo.
@@ -37,16 +57,12 @@ func (fi *FileInfo) Name() string {
 
 // Size implements fs.FileInfo.
 func (fi *FileInfo) Size() int64 {
-	return fi.stat.Size
+	return fi.size
 }
 
 // Sys implements fs.FileInfo.
 func (fi *FileInfo) Sys() any {
 	return fi.stat
-}
-
-func NewFile() billy.File {
-	return &File{}
 }
 
 // FILE
@@ -58,6 +74,7 @@ func (f *File) Close() error {
 
 // Lock implements billy.File.
 func (f *File) Lock() error {
+	log.Printf("LOCK: %s", f.s3Prefix)
 	if _, loaded := f.s3.locks.LoadOrStore(f.s3Prefix, true); loaded {
 		return os.ErrDeadlineExceeded
 	}
@@ -92,6 +109,7 @@ func (f *File) Truncate(size int64) error {
 
 // Unlock implements billy.File.
 func (f *File) Unlock() error {
+	log.Printf("UNLOCK: %s", f.s3Prefix)
 	if f.locked {
 		f.s3.locks.Delete(f.s3Prefix)
 		return nil
