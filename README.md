@@ -5,7 +5,7 @@ Read-only nfs server that acts as a bridge to S3 bucket
 ##  Install 
 
 ```
-go install github.com/rtgnx/s3nfsd/cmd/s3nfsd@latest
+go install github.com/rtgnx/s3nfs/cmd/s3nfsd@latest
 
 ```
 
