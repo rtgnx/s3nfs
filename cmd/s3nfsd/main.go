@@ -6,7 +6,7 @@ import (
 
 	cli "github.com/jawher/mow.cli"
 	"github.com/rtgnx/s3nfs/internal/fs/nfsd"
-	"github.com/rtgnx/s3nfs/internal/fs/s3"
+	"gopkg.in/yaml.v3"
 )
 
 func main() {
@@ -21,15 +21,23 @@ func main() {
 func cmdServe(cmd *cli.Cmd) {
 
 	var (
-		addr = cmd.StringOpt("addr", ":6969", "addr to listen to")
+		addr    = cmd.StringOpt("addr", ":6969", "addr to listen to")
+		cfgFile = cmd.StringOpt("cfg", "/etc/s3nfsd.yml", "s3nfsd config")
 	)
 
 	cmd.Action = func() {
-		s3, err := s3.FromEnv()
+		cfg := new(nfsd.Config)
+		fd, err := os.Open(*cfgFile)
 		if err != nil {
 			log.Fatal(err)
 		}
-		if err := nfsd.Serve(*addr, s3); err != nil {
+		defer fd.Close()
+
+		if err := yaml.NewDecoder(fd).Decode(cfg); err != nil {
+			log.Fatal(err)
+		}
+		fs := nfsd.NewMapperFS(*cfg)
+		if err := nfsd.Serve(*addr, fs); err != nil {
 			log.Fatal(err)
 		}
 	}

@@ -7,6 +7,7 @@ require (
 	github.com/jawher/mow.cli v1.2.0
 	github.com/minio/minio-go/v7 v7.0.61
 	github.com/willscott/go-nfs v0.0.0-20230808151746-ad64de4b92cb
+	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 )
 
 require (
